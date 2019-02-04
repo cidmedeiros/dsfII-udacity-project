@@ -3,7 +3,7 @@
 import sys
 import pickle
 sys.path.append("../tools/")
-import matplotlib.pyplot
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from feature_format import featureFormat, targetFeatureSplit
@@ -35,6 +35,18 @@ def outlierCleaner(y_pred_train, x_train, y_train):
 
     return cleaned_data
 
+### Task 1: Select what features you'll use.
+### features_list is a list of strings, each of which is a feature name.
+### The first feature must be "poi".
+
+
+###selected features
+
+features_list = ['poi', 'salary', 'deferral_payments', 'total_payments', 'loan_advances', 'bonus', 'restricted_stock_deferred',
+                 'deferred_income', 'total_stock_value', 'expenses', 'exercised_stock_options', 'other', 'long_term_incentive',
+                 'restricted_stock', 'director_fees','to_messages','from_poi_to_this_person','from_messages', 'from_this_person_to_poi',
+                 'shared_receipt_with_poi']
+
 ### Task 2: Remove outliers
     
 features_list = ['poi', 'salary', 'deferral_payments', 'total_payments', 'loan_advances',
@@ -48,8 +60,6 @@ data_dict = {}
 ### Load the dictionary containing the dataset
 with open("final_project_dataset.pkl", "rb") as data_file:
     data_dict = pickle.load(data_file)
-
-data_dict.pop('TOTAL', 0)
 
 data = featureFormat(data_dict, features_list, remove_all_zeroes=False)
 
@@ -74,8 +84,28 @@ for i, feat in enumerate(features_list):
         reg = LinearRegression()
         reg.fit(feature, poi)
         pred = reg.predict(feature)
+        try:
+            plt.plot(feature, pred, color="blue")
+        except NameError:
+            pass
+        print('{}: Scatter for Uncleaned Data'.format(feat))
+        plt.scatter(feature, poi)
+        plt.xlabel(feat)
+        plt.ylabel('poi')
+        plt.show()
         cleaned_data = outlierCleaner(pred, poi, feature) #remove outliers
         poi_cleaned, feature_cleaned, errors = zip(*cleaned_data)
+        reg.fit(feature_cleaned, poi_cleaned)
+        pred_cleaned = reg.predict(feature_cleaned)
+        try:
+            plt.plot(feature_cleaned, pred_cleaned, color="blue")
+        except NameError:
+            pass
+        print('{}: Scatter for Cleaned Data'.format(feat))
+        plt.scatter(feature_cleaned, poi_cleaned)
+        plt.xlabel(feat)
+        plt.ylabel('poi')
+        plt.show()
         list_temp = []
         for n, j in zip(poi_cleaned, feature_cleaned):
             list_temp.append([n, j])
@@ -106,25 +136,9 @@ semi_df['selected'] = np.where(((semi_df.salary_out == 'selected') & (semi_df.de
 
 df_final = semi_df.loc[semi_df.selected == True].copy().sort_index()
 
-### Task 1: Select what features you'll use.
-### features_list is a list of strings, each of which is a feature name.
-### The first feature must be "poi".
-
-#fit linear regression
-regression = Lasso()
-regression.fit(features, label)
-coefs = regression.coef_
-
-###selected features
-
-features_list = ['poi', 'salary', 'deferral_payments', 'total_payments', 'loan_advances', 'bonus', 'restricted_stock_deferred',
-                 'deferred_income', 'total_stock_value', 'expenses', 'exercised_stock_options', 'other', 'long_term_incentive',
-                 'restricted_stock', 'director_fees','to_messages','from_poi_to_this_person','from_messages', 'from_this_person_to_poi',
-                 'shared_receipt_with_poi']
-
 ### Task 3: Create new feature(s)
 ### Store to my_dataset for easy export below.
-my_dataset = my_data_dict
+my_dataset = data_dict
 
 ### Extract features and labels from dataset for local testing
 data = featureFormat(my_dataset, features_list, sort_keys = True)
