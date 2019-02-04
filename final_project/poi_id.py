@@ -49,6 +49,8 @@ data_dict = {}
 with open("final_project_dataset.pkl", "rb") as data_file:
     data_dict = pickle.load(data_file)
 
+data_dict.pop('TOTAL', 0)
+
 data = featureFormat(data_dict, features_list, remove_all_zeroes=False)
 
 df = pd.DataFrame(data_dict).T
@@ -59,8 +61,9 @@ df.poi = np.where(df.poi == False, float(0), float(1))
 frames = []
 
 for col in df.columns:
-    if col != 'poi':
+    if col not in ('poi', 'person', 'email_address'):
         exec('df.{} = np.where(df.{} == "NaN", float(0), df.{})'.format(col, col, col))
+        exec('df["{}"] = df["{}"].astype(float)'.format(col, col))
 
 for i, feat in enumerate(features_list):
     if feat != 'poi':
@@ -101,7 +104,7 @@ semi_df['selected'] = np.where(((semi_df.salary_out == 'selected') & (semi_df.de
                                 (semi_df.from_messages_out == 'selected') & (semi_df.from_this_person_to_poi_out == 'selected') &
                                 (semi_df.shared_receipt_with_poi_out == 'selected')), True, False)
 
-df_final = semi_df.loc[semi_df.selected == True].copy()
+df_final = semi_df.loc[semi_df.selected == True].copy().sort_index()
 
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
