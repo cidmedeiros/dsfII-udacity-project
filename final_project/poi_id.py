@@ -4,13 +4,13 @@ sys.path.append("../tools/")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import hashlib
 from feature_format import featureFormat, targetFeatureSplit
 from tester import dump_classifier_and_data
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.linear_model import Lasso
+from sklearn.preprocessing import StandardScaler
+from sklearn.feature_selection import RFE
+from sklearn.linear_model import LogisticRegression
 from sklearn.cross_validation import train_test_split
-from sklearn.linear_model import LinearRegression
-
 
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
@@ -28,40 +28,61 @@ data_dict = {}
 with open("final_project_dataset.pkl", "rb") as data_file:
     data_dict = pickle.load(data_file)
 
-data_dict.pop('TOTAL')
+data_dict.pop('TOTAL') #outlier removal
 
 data = featureFormat(data_dict, features_list)
 
-X = data[:, 1:]
+y, X = targetFeatureSplit(data)
 X_labels = features_list[1:]
-y = data[:, 0]
 
-#Plot distribution with its respective linear discriminant coeficient
+mod = LogisticRegression()
+rfe = RFE(mod, 13)
+fit = rfe.fit(X, y)
 
-clf_sf = LinearDiscriminantAnalysis(n_components=19)
+print('Number of Selected Features: {}'.format(fit.n_features_), '\n')
 
-clf_sf.fit(X, y)
+supported_features = fit.support_
+selected_features = []
 
-coef_list = clf_sf.coef_
+for i, feat in enumerate(X_labels):
+    if supported_features[i] == True:
+        selected_features.append(feat)
+        print('{} got selected'.format(feat), '\n')
+    else:
+        print('{} not selected'.format(feat), '\n')
 
-for label, coef in zip(X_labels, coef_list):
-    print(label)
-    plt.hist(X[:, X_labels.index(label)])
-    plt.show()
-    print('{} = {}'.format(label, coef), '\n')
+#test RFE/Logistic Regression with scaling the features
+scaler = StandardScaler()
+scaler.fit(X)
+X_scaled = scaler.transform(X)
+fit_scaled = rfe.fit(X_scaled, y)
+
+print('Number of Scaled Selected Features: {}'.format(fit.n_features_), '\n')
+
+supported_scaled_features = fit_scaled.support_
+selected_scaled_features = []
+
+for i, feat in enumerate(X_labels):
+    if supported_scaled_features[i] == True:
+        selected_scaled_features.append(feat)
+        print('{} got selected'.format(feat), '\n')
+    else:
+        print('{} not selected'.format(feat), '\n')
 
 ###selected features
 
+features_list = selected_scaled_features
+
 ### Task 2: Remove outliers
 
-df = pd.DataFrame(data_dict).T
-df.reset_index(inplace=True)
-df.rename(columns = {'index': 'person'}, inplace=True)
-df.poi = np.where(df.poi == False, float(0), float(1))
-
+#Not performing any outliers removal beyond TOTAL index because
+#I'm actually looking for anomalities in the the data.
 
 ### Task 3: Create new feature(s)
 ### Store to my_dataset for easy export below.
+
+
+
 my_dataset = data_dict
 
 ### Extract features and labels from dataset for local testing
