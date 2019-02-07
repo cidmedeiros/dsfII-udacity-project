@@ -4,13 +4,13 @@ sys.path.append("../tools/")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import hashlib
 from feature_format import featureFormat, targetFeatureSplit
 from tester import dump_classifier_and_data
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import RFE
 from sklearn.linear_model import LogisticRegression
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
@@ -51,7 +51,7 @@ for i, feat in enumerate(X_labels):
     else:
         print('{} not selected'.format(feat), '\n')
 
-#test RFE/Logistic Regression with scaling the features
+#test RFE/Logistic Regression with feature scaling
 scaler = StandardScaler()
 scaler.fit(X)
 X_scaled = scaler.transform(X)
@@ -75,19 +75,51 @@ features_list = selected_scaled_features
 
 ### Task 2: Remove outliers
 
-#Not performing any outliers removal beyond TOTAL index because
+#I'm not performing any outliers removal beyond data_dict.pop('TOTAL') because
 #I'm actually looking for anomalities in the the data.
 
 ### Task 3: Create new feature(s)
 ### Store to my_dataset for easy export below.
 
+#fraction_to_this_person_from_poi
+#fraction_from_this_person_poi
 
+for k in data_dict:
+    to_messages = data_dict[k]['to_messages']
+    from_messages = data_dict[k]['from_messages']
+    from_poi = data_dict[k]['from_poi_to_this_person']
+    to_poi = data_dict[k]['from_this_person_to_poi']
+    if from_poi != 'NaN' and to_messages != 'NaN':
+        data_dict[k]['fraction_to_this_person_from_poi'] = float(from_poi)/float(to_messages)
+    else:
+        data_dict[k]['fraction_to_this_person_from_poi'] = float(0)
+        
+    if to_poi != 'NaN' and from_messages != 'NaN':
+        data_dict[k]['fraction_from_this_person_poi'] = float(to_poi)/float(from_messages)
+    else:
+        data_dict[k]['fraction_from_this_person_poi'] = float(0)
+        
 
 my_dataset = data_dict
 
+features_list.append('fraction_to_this_person_from_poi')
+features_list.append('fraction_from_this_person_poi')
+features_list.insert(0,'poi')
+
 ### Extract features and labels from dataset for local testing
-data = featureFormat(my_dataset, features_list, sort_keys = True)
+data = featureFormat(my_dataset, features_list)
 labels, features = targetFeatureSplit(data)
+b = len(features[0]) - 2
+p_features = [sublist[:b] for sublist in features]
+scaler.fit(p_features)
+p_features = scaler.transform(p_features)
+df_features = pd.DataFrame(p_features)
+
+fraction_to_this_person_from_poi, fraction_from_this_person_poi = [listt[13] for listt in features], [listt[14] for listt in features]
+df_features[13] = fraction_to_this_person_from_poi
+df_features[14] = fraction_from_this_person_poi
+
+features = df_features.as_matrix()
 
 ### Task 4: Try a varity of classifiers
 ### Please name your classifier clf for easy export below.
