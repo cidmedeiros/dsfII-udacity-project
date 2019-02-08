@@ -2,6 +2,7 @@ import sys
 import pickle
 sys.path.append("../tools/")
 import matplotlib.pyplot as plt
+from time import time
 import numpy as np
 import pandas as pd
 from feature_format import featureFormat, targetFeatureSplit
@@ -76,13 +77,13 @@ features_list = selected_scaled_features
 ### Task 2: Remove outliers
 
 #I'm not performing any outliers removal beyond data_dict.pop('TOTAL') because
-#I'm actually looking for anomalities in the the data.
+#I'm actually looking for anomalities in the the data. See report for more information
 
 ### Task 3: Create new feature(s)
 ### Store to my_dataset for easy export below.
 
-#fraction_to_this_person_from_poi
-#fraction_from_this_person_poi
+#new feature 1: fraction_to_this_person_from_poi
+#new feature 2: fraction_from_this_person_poi
 
 for k in data_dict:
     to_messages = data_dict[k]['to_messages']
@@ -109,17 +110,47 @@ features_list.insert(0,'poi')
 ### Extract features and labels from dataset for local testing
 data = featureFormat(my_dataset, features_list)
 labels, features = targetFeatureSplit(data)
+
+#Split the data into training and testset
+features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.2, random_state=42)
+
+##SCALING THE DATA
+#temporarily removing the features already in scale (fraction_to_this_person_from_poi, fraction_from_this_person_poi)
+
 b = len(features[0]) - 2
-p_features = [sublist[:b] for sublist in features]
-scaler.fit(p_features)
-p_features = scaler.transform(p_features)
-df_features = pd.DataFrame(p_features)
+p_features_train = [sublist[:b] for sublist in features_train]
+p_features_test = [sublist[:b] for sublist in features_test]
 
-fraction_to_this_person_from_poi, fraction_from_this_person_poi = [listt[13] for listt in features], [listt[14] for listt in features]
-df_features[13] = fraction_to_this_person_from_poi
-df_features[14] = fraction_from_this_person_poi
+#as with all transformation it's important to fit the scaler to the training data only.
+scaler.fit(p_features_train)
 
-features = df_features.as_matrix()
+#then apply to the data
+p_features_train = scaler.transform(p_features_train)
+p_features_test = scaler.transform(p_features_test)
+
+#putting fraction_to_this_person_from_poi, fraction_from_this_person_poi back into the matrix (training features)
+df_features_train = pd.DataFrame(p_features_train)
+
+fraction_to_this_person_from_poi, fraction_from_this_person_poi = [listt[b] for listt in features_train], [listt[b+1] for listt in features_train]
+df_features_train[b] = fraction_to_this_person_from_poi
+df_features_train[b+1] = fraction_from_this_person_poi
+
+try:
+    features_train = df_features_train.to_numpy()
+except AttributeError:
+    features_train = df_features_train.as_matrix()
+
+#putting fraction_to_this_person_from_poi, fraction_from_this_person_poi back into the matrix (test features)
+df_features_test = pd.DataFrame(p_features_test)
+
+fraction_to_this_person_from_poi, fraction_from_this_person_poi = [listt[b] for listt in features_test], [listt[b+1] for listt in features_test]
+df_features_test[b] = fraction_to_this_person_from_poi
+df_features_test[b+1] = fraction_from_this_person_poi
+
+try:
+    features_test = df_features_test.to_numpy()
+except AttributeError:
+    features_test = df_features_test.as_matrix()
 
 ### Task 4: Try a varity of classifiers
 ### Please name your classifier clf for easy export below.
@@ -128,8 +159,42 @@ features = df_features.as_matrix()
 ### http://scikit-learn.org/stable/modules/pipeline.html
 
 # Provided to give you a starting point. Try a variety of classifiers.
+#Gaussian Naive Bayes
+
 from sklearn.naive_bayes import GaussianNB
 clf = GaussianNB()
+start = time()
+clf.fit(features_train, labels_train)
+end = time()
+
+start1 = time()
+pred = clf.predict(features_test)
+end1 = time()
+
+###Evaluating the accuracy
+print(accuracy_score(pred, labels_test))
+
+time = (end - start)
+time1 = (end1 - start1)
+print('Time for training: ',time,'s','Time for predicting: ',time1,'s')
+#########################################################
+
+#Support Vector Machine
+from sklearn.svm import SVC
+clf_1 = SVC(C= 10000.0, kernel='rbf')
+start2 = time()
+clf_1.fit(features_train, labels_train)
+end2 = time()
+
+start3 = time()
+pred_1 = clf_1.predict(features_test)
+end3 = time()
+
+print(accuracy_score(pred_1, labels_test))
+
+time = (end2 - start2)
+time1 = (end3 - start3)
+print('Time for training: ',time,'s','Time for predicting: ',time1,'s')
 
 ### Task 5: Tune your classifier to achieve better than .3 precision and recall 
 ### using our testing script. Check the tester.py script in the final project
