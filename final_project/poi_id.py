@@ -115,37 +115,30 @@ labels, features = targetFeatureSplit(data)
 features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.2, random_state=42)
 
 ##SCALING THE DATA
+"""
 #temporarily removing the features already in scale (fraction_to_this_person_from_poi, fraction_from_this_person_poi)
 
 b = len(features[0]) - 2
 p_features_train = [sublist[:b] for sublist in features_train]
 p_features_test = [sublist[:b] for sublist in features_test]
-
+"""
 #as with all transformation it's important to fit the scaler to the training data only.
-scaler.fit(p_features_train)
+scaler.fit(features_train)
 
 #then apply to the data
-p_features_train = scaler.transform(p_features_train)
-p_features_test = scaler.transform(p_features_test)
+features_train = scaler.transform(features_train)
+features_test = scaler.transform(features_test)
 
-#putting fraction_to_this_person_from_poi, fraction_from_this_person_poi back into the matrix (training features)
-df_features_train = pd.DataFrame(p_features_train)
-
-fraction_to_this_person_from_poi, fraction_from_this_person_poi = [listt[b] for listt in features_train], [listt[b+1] for listt in features_train]
-df_features_train[b] = fraction_to_this_person_from_poi
-df_features_train[b+1] = fraction_from_this_person_poi
+#Frame train set
+df_features_train = pd.DataFrame(features_train)
 
 try:
     features_train = df_features_train.to_numpy()
 except AttributeError:
     features_train = df_features_train.as_matrix()
 
-#putting fraction_to_this_person_from_poi, fraction_from_this_person_poi back into the matrix (test features)
-df_features_test = pd.DataFrame(p_features_test)
-
-fraction_to_this_person_from_poi, fraction_from_this_person_poi = [listt[b] for listt in features_test], [listt[b+1] for listt in features_test]
-df_features_test[b] = fraction_to_this_person_from_poi
-df_features_test[b+1] = fraction_from_this_person_poi
+#Frame train set
+df_features_test = pd.DataFrame(features_test)
 
 try:
     features_test = df_features_test.to_numpy()
@@ -167,12 +160,12 @@ clf_1.fit(features_train, labels_train)
 
 pred_1 = clf_1.predict(features_test)
 ###Evaluating the accuracy
-print(accuracy_score(pred_1, labels_test))
+print('Gaussian Naive Bayes: ', accuracy_score(pred_1, labels_test))
 
 ##########################################
 #Support Vector Machine
 from sklearn.svm import SVC
-clf = SVC(C= 10000.0, kernel='linear')
+clf = SVC(C= 100.0, kernel='linear')
 start2 = time()
 clf.fit(features_train, labels_train)
 end2 = time()
@@ -181,11 +174,13 @@ start3 = time()
 pred = clf.predict(features_test)
 end3 = time()
 
-print(accuracy_score(pred, labels_test))
-
 time = (end2 - start2)
 time1 = (end3 - start3)
 print('Time for training: ',time,'s','Time for predicting: ',time1,'s')
+
+###Evaluating the accuracy
+print('Support Vector Machine: ', accuracy_score(pred, labels_test))
+
 
 ### Task 5: Tune your classifier to achieve better than .3 precision and recall 
 ### using our testing script. Check the tester.py script in the final project
