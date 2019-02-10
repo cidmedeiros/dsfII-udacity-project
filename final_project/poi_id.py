@@ -162,35 +162,26 @@ except AttributeError:
 #Gaussian Naive Bayes
 
 from sklearn.naive_bayes import GaussianNB
-clf = GaussianNB()
-start = time()
-clf.fit(features_train, labels_train)
-end = time()
+clf_1 = GaussianNB()
+clf_1.fit(features_train, labels_train)
 
-start1 = time()
-pred = clf.predict(features_test)
-end1 = time()
-
+pred_1 = clf_1.predict(features_test)
 ###Evaluating the accuracy
-print(accuracy_score(pred, labels_test))
+print(accuracy_score(pred_1, labels_test))
 
-time = (end - start)
-time1 = (end1 - start1)
-print('Time for training: ',time,'s','Time for predicting: ',time1,'s')
-#########################################################
-
+##########################################
 #Support Vector Machine
 from sklearn.svm import SVC
-clf_1 = SVC(C= 10000.0, kernel='rbf')
+clf = SVC(C= 10000.0, kernel='linear')
 start2 = time()
-clf_1.fit(features_train, labels_train)
+clf.fit(features_train, labels_train)
 end2 = time()
 
 start3 = time()
-pred_1 = clf_1.predict(features_test)
+pred = clf.predict(features_test)
 end3 = time()
 
-print(accuracy_score(pred_1, labels_test))
+print(accuracy_score(pred, labels_test))
 
 time = (end2 - start2)
 time1 = (end3 - start3)
