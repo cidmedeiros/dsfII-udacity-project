@@ -10,6 +10,7 @@ from tester import dump_classifier_and_data
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import RFE
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
@@ -117,7 +118,6 @@ features_train, features_test, labels_train, labels_test = train_test_split(feat
 ##SCALING THE DATA
 """
 #temporarily removing the features already in scale (fraction_to_this_person_from_poi, fraction_from_this_person_poi)
-
 b = len(features[0]) - 2
 p_features_train = [sublist[:b] for sublist in features_train]
 p_features_test = [sublist[:b] for sublist in features_test]
@@ -150,7 +150,7 @@ except AttributeError:
 ### Note that if you want to do PCA or other multi-stage operations,
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
-
+    
 # Provided to give you a starting point. Try a variety of classifiers.
 #Gaussian Naive Bayes
 
@@ -166,17 +166,14 @@ print('Gaussian Naive Bayes: ', accuracy_score(pred_1, labels_test))
 #Support Vector Machine
 from sklearn.svm import SVC
 clf = SVC(C= 100.0, kernel='linear')
-start2 = time()
+
 clf.fit(features_train, labels_train)
-end2 = time()
+pred = clf.predict(features_test)
 
 start3 = time()
-pred = clf.predict(features_test)
 end3 = time()
-
-time = (end2 - start2)
 time1 = (end3 - start3)
-print('Time for training: ',time,'s','Time for predicting: ',time1,'s')
+#print('Time for training: ',time,'s','Time for predicting: ',time1,'s')
 
 ###Evaluating the accuracy
 print('Support Vector Machine: ', accuracy_score(pred, labels_test))
