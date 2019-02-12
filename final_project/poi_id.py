@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import RFE
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
 from sklearn.metrics import accuracy_score
 
 ### Task 1: Select what features you'll use.
@@ -108,12 +108,14 @@ features_list.append('fraction_to_this_person_from_poi')
 features_list.append('fraction_from_this_person_poi')
 features_list.insert(0,'poi')
 
+#build pipeline to reselect features and do PCA
+
 ### Extract features and labels from dataset for local testing
 data = featureFormat(my_dataset, features_list)
 labels, features = targetFeatureSplit(data)
 
 #Split the data into training and testset
-features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.2, random_state=42)
+features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.3, random_state=42)
 
 ##SCALING THE DATA
 """
@@ -156,19 +158,31 @@ except AttributeError:
 
 from sklearn.naive_bayes import GaussianNB
 clf_1 = GaussianNB()
-clf_1.fit(features_train, labels_train)
 
-pred_1 = clf_1.predict(features_test)
-###Evaluating the accuracy
-print('Gaussian Naive Bayes: ', accuracy_score(pred_1, labels_test))
+acc = cross_val_score(clf_1, features_train, labels_train, scoring='recall', cv=10)
+
+def display(scores):
+    print('Naive Bayes', '\n')
+    print('Scores:', acc)
+    print('Mean:', acc.mean())
+    print('STD:', acc.std())
+    
+display(acc)
 
 ##########################################
 #Support Vector Machine
 from sklearn.svm import SVC
 clf = SVC(C= 100.0, kernel='linear')
 
-clf.fit(features_train, labels_train)
-pred = clf.predict(features_test)
+acc = cross_val_score(clf, features_train, labels_train, scoring='accuracy', cv=10)
+
+def display(scores):
+    print('Support Vector Machine', '\n')
+    print('Scores:', acc)
+    print('Mean:', acc.mean())
+    print('STD:', acc.std())
+    
+display(acc)
 
 start3 = time()
 end3 = time()
@@ -176,8 +190,24 @@ time1 = (end3 - start3)
 #print('Time for training: ',time,'s','Time for predicting: ',time1,'s')
 
 ###Evaluating the accuracy
-print('Support Vector Machine: ', accuracy_score(pred, labels_test))
+#print('Support Vector Machine: ', accuracy_score(pred, labels_test), '\n')
 
+#########################################
+#Decision Trees
+
+#cross validation
+from sklearn import tree
+clf = tree.DecisionTreeClassifier()
+
+acc = cross_val_score(clf, features_train, labels_train, scoring='accuracy', cv=10)
+
+def display(scores):
+    print('Decision Tree', '\n')
+    print('Scores:', acc)
+    print('Mean:', acc.mean())
+    print('STD:', acc.std())
+    
+display(acc)
 
 ### Task 5: Tune your classifier to achieve better than .3 precision and recall 
 ### using our testing script. Check the tester.py script in the final project
