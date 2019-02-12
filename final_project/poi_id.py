@@ -37,39 +37,41 @@ data = featureFormat(data_dict, features_list)
 y, X = targetFeatureSplit(data)
 X_labels = features_list[1:]
 
-mod = LogisticRegression()
-rfe = RFE(mod, 13)
-fit = rfe.fit(X, y)
+#function do display the selected features
+def display_selected(labels, supported_features):
+    selected_features = []
+    for i, feat in enumerate(labels):
+        if supported_features[i] == True:
+            selected_features.append(feat)
+            print('{} got selected'.format(feat), '\n')
+        else:
+            print('{} not selected'.format(feat), '\n')
+    return selected_features
 
-print('Number of Selected Features: {}'.format(fit.n_features_), '\n')
+#RFE/Logistic Regression
+def rfe_selection (X, y, n_features):
+    mod = LogisticRegression()
+    rfe = RFE(mod, n_features)
+    fit = rfe.fit(X, y)
+    supported_features = fit.support_
+    return supported_features
 
-supported_features = fit.support_
-selected_features = []
+#Runninf RFE selection before scaling
+supported_features = rfe_selection (X, y, n_features=13)
 
-for i, feat in enumerate(X_labels):
-    if supported_features[i] == True:
-        selected_features.append(feat)
-        print('{} got selected'.format(feat), '\n')
-    else:
-        print('{} not selected'.format(feat), '\n')
+selected_features = display_selected(X_labels, supported_features)
 
-#test RFE/Logistic Regression with feature scaling
-scaler = StandardScaler()
-scaler.fit(X)
-X_scaled = scaler.transform(X)
-fit_scaled = rfe.fit(X_scaled, y)
+#RFE/Logistic Regression with feature scaling
+def feat_scaler(X):
+    scaler = StandardScaler()
+    scaler.fit(X)
+    X_scaled = scaler.transform(X)
+    return X_scaled
 
-print('Number of Scaled Selected Features: {}'.format(fit.n_features_), '\n')
+X_scaled = feat_scaler(X)
+supported_scaled_features = rfe_selection (X_scaled, y, n_features=13)
 
-supported_scaled_features = fit_scaled.support_
-selected_scaled_features = []
-
-for i, feat in enumerate(X_labels):
-    if supported_scaled_features[i] == True:
-        selected_scaled_features.append(feat)
-        print('{} got selected'.format(feat), '\n')
-    else:
-        print('{} not selected'.format(feat), '\n')
+selected_scaled_features = display_selected(X_labels, supported_scaled_features)
 
 ###selected features
 
@@ -83,9 +85,8 @@ features_list = selected_scaled_features
 ### Task 3: Create new feature(s)
 ### Store to my_dataset for easy export below.
 
-#new feature 1: fraction_to_this_person_from_poi
-#new feature 2: fraction_from_this_person_poi
-
+#Create new feature 1: fraction_to_this_person_from_poi
+#Create new feature 2: fraction_from_this_person_poi
 for k in data_dict:
     to_messages = data_dict[k]['to_messages']
     from_messages = data_dict[k]['from_messages']
@@ -102,13 +103,11 @@ for k in data_dict:
         data_dict[k]['fraction_from_this_person_poi'] = float(0)
         
 
-my_dataset = data_dict
+my_dataset = data_dict #new features added and outliers removed
 
 features_list.append('fraction_to_this_person_from_poi')
 features_list.append('fraction_from_this_person_poi')
 features_list.insert(0,'poi')
-
-#build pipeline to reselect features and do PCA
 
 ### Extract features and labels from dataset for local testing
 data = featureFormat(my_dataset, features_list)
@@ -176,14 +175,8 @@ clf = SVC(C= 100.0, kernel='linear')
 
 acc = cross_val_score(clf, features_train, labels_train, scoring='accuracy', cv=10)
 
-def display(scores):
-    print('Support Vector Machine', '\n')
-    print('Scores:', acc)
-    print('Mean:', acc.mean())
-    print('STD:', acc.std())
-    
 display(acc)
-
+    
 start3 = time()
 end3 = time()
 time1 = (end3 - start3)
@@ -200,12 +193,6 @@ from sklearn import tree
 clf = tree.DecisionTreeClassifier()
 
 acc = cross_val_score(clf, features_train, labels_train, scoring='accuracy', cv=10)
-
-def display(scores):
-    print('Decision Tree', '\n')
-    print('Scores:', acc)
-    print('Mean:', acc.mean())
-    print('STD:', acc.std())
     
 display(acc)
 
