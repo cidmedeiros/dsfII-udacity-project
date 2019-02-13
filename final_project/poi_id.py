@@ -11,8 +11,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import RFE
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
-from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, cross_val_score
+from sklearn.metrics import make_scorer, recall_score, precision_score, accuracy_score
 
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
@@ -62,13 +62,13 @@ supported_features = rfe_selection (X, y, n_features=13)
 selected_features = display_selected(X_labels, supported_features)
 
 #RFE/Logistic Regression with feature scaling
-def feat_scaler(X):
+def feat_scaler(X, t):
     scaler = StandardScaler()
     scaler.fit(X)
-    X_scaled = scaler.transform(X)
+    X_scaled = scaler.transform(t)
     return X_scaled
 
-X_scaled = feat_scaler(X)
+X_scaled = feat_scaler(X, t=X)
 supported_scaled_features = rfe_selection (X_scaled, y, n_features=13)
 
 selected_scaled_features = display_selected(X_labels, supported_scaled_features)
@@ -114,21 +114,135 @@ data = featureFormat(my_dataset, features_list)
 labels, features = targetFeatureSplit(data)
 
 #Split the data into training and testset
-features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.3, random_state=42)
+features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.2, random_state=42)
 
 ##SCALING THE DATA
-"""
-#temporarily removing the features already in scale (fraction_to_this_person_from_poi, fraction_from_this_person_poi)
-b = len(features[0]) - 2
-p_features_train = [sublist[:b] for sublist in features_train]
-p_features_test = [sublist[:b] for sublist in features_test]
-"""
-#as with all transformation it's important to fit the scaler to the training data only.
-scaler.fit(features_train)
+#as with all transformation it's important to fit the scaler to the training data only
+#then apply to the testing data
+features_test = feat_scaler(features_train, t=features_test)
 
-#then apply to the data
-features_train = scaler.transform(features_train)
-features_test = scaler.transform(features_test)
+#scaling the training data
+features_train = feat_scaler(features_train, t=features_train)
+
+### Task 4: Try a varity of classifiers
+### Please name your classifier clf for easy export below.
+### Note that if you want to do PCA or other multi-stage operations,
+### you'll need to use Pipelines. For more info:
+### http://scikit-learn.org/stable/modules/pipeline.html
+    
+# Provided to give you a starting point. Try a variety of classifiers.
+
+def display(scores, name):
+    print('')
+    print(name, '\n')
+    print('Scores:', scores)
+    print('Score Mean:', scores.mean())
+    print('Score STD:', scores.std())
+
+##########################################
+#Gaussian Naive Bayes
+
+from sklearn.naive_bayes import GaussianNB
+clf_1 = GaussianNB()
+acc = cross_val_score(clf_1, features_train, labels_train, scoring='recall', cv=10)
+    
+display(acc, 'Naive Bayes')
+
+##########################################
+#Support Vector Machine
+from sklearn.svm import SVC
+clf_2 = SVC(kernel='rbf', gamma = 0.001, C= 50)
+acc = cross_val_score(clf_2, features_train, labels_train, scoring='accuracy', cv=10)
+
+display(acc, 'SVM-SVC')
+    
+##########################################
+#Decision Trees
+
+#cross validation
+from sklearn import tree
+clf_3 = tree.DecisionTreeClassifier(min_samples_split=40)
+acc = cross_val_score(clf_3, features_train, labels_train, scoring='recall', cv=10)
+    
+display(acc, 'Decision Trees')
+
+##########################################
+#K Near Neighbors
+from sklearn.neighbors import KNeighborsClassifier
+clf_4 = KNeighborsClassifier(n_neighbors=3)
+acc = cross_val_score(clf_4, features_train, labels_train, scoring='recall', cv=10)
+
+display(acc, 'K Near Neighbors')
+
+### Task 5: Tune your classifier to achieve better than .3 precision and recall 
+### using our testing script. Check the tester.py script in the final project
+### folder for details on the evaluation method, especially the test_classifier
+### function. Because of the small size of the dataset, the script uses
+### stratified shuffle split cross validation. For more info: 
+### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
+
+###RandomizedSearchCV
+# Utility function to report best scores extracted from sklearn documentation
+#https://scikit-learn.org/stable/auto_examples/model_selection/plot_randomized_search.html
+
+def report(results, n_top=3):
+    for i in range(1, n_top + 1):
+        candidates = np.flatnonzero(results['rank_test_score'] == i)
+        for candidate in candidates:
+            print("Model with rank: {0}".format(i))
+            print("Mean validation score: {0:.3f} (std: {1:.3f})".format(
+                  results['mean_test_score'][candidate],
+                  results['std_test_score'][candidate]))
+            print("Parameters: {0}".format(results['params'][candidate]))
+            print("")
+            
+recall = make_scorer(recall_score)
+n_iter_search = 20 
+##########################################
+#Support Vector Machine
+clf_SVC = SVC()
+
+param_svc = {'C': [1.0, 10, 50, 100, 200, 500, 800, 1000], 
+             'kernel': ['linear', 'poly', 'rbf', 'sigmoid'],
+             'gamma': [0.001, 0.010, 0.1, 1]}
+
+random_search = RandomizedSearchCV(clf_SVC, param_distributions=param_svc, n_iter=n_iter_search,
+                                   scoring = 'recall', cv=10)
+
+random_search.fit(features_train, labels_train)
+
+report(random_search.cv_results_, n_top=3)
+
+##########################################
+#Decision Trees
+clf_tree = tree.DecisionTreeClassifier()
+
+param_tree = {'min_samples_split':[2, 4, 8], 'min_samples_leaf':[2, 4, 8],
+              'max_features':[3, 5, 7, 9]}
+
+random_search = RandomizedSearchCV(clf_tree, param_distributions=param_tree,n_iter=n_iter_search,
+                                   scoring = 'recall', cv=10)
+
+random_search.fit(features_train, labels_train)
+
+report(random_search.cv_results_, n_top=3)
+
+# Example starting point. Try investigating other evaluation techniques!
+features_train, features_test, labels_train, labels_test = \
+    train_test_split(features, labels, test_size=0.3, random_state=42)
+
+### Task 6: Dump your classifier, dataset, and features_list so anyone can
+### check your results. You do not need to change anything below, but make sure
+### that the version of poi_id.py that you submit can be run on its own and
+### generates the necessary .pkl files for validating your results.
+
+dump_classifier_and_data(clf, my_dataset, features_list)
+
+
+start3 = time()
+end3 = time()
+time1 = (end3 - start3)
+#print('Time for training: ',time,'s','Time for predicting: ',time1,'s')
 
 #Frame train set
 df_features_train = pd.DataFrame(features_train)
@@ -145,72 +259,3 @@ try:
     features_test = df_features_test.to_numpy()
 except AttributeError:
     features_test = df_features_test.as_matrix()
-
-### Task 4: Try a varity of classifiers
-### Please name your classifier clf for easy export below.
-### Note that if you want to do PCA or other multi-stage operations,
-### you'll need to use Pipelines. For more info:
-### http://scikit-learn.org/stable/modules/pipeline.html
-    
-# Provided to give you a starting point. Try a variety of classifiers.
-#Gaussian Naive Bayes
-
-from sklearn.naive_bayes import GaussianNB
-clf_1 = GaussianNB()
-
-acc = cross_val_score(clf_1, features_train, labels_train, scoring='recall', cv=10)
-
-def display(scores):
-    print('Naive Bayes', '\n')
-    print('Scores:', acc)
-    print('Mean:', acc.mean())
-    print('STD:', acc.std())
-    
-display(acc)
-
-##########################################
-#Support Vector Machine
-from sklearn.svm import SVC
-clf = SVC(C= 100.0, kernel='linear')
-
-acc = cross_val_score(clf, features_train, labels_train, scoring='accuracy', cv=10)
-
-display(acc)
-    
-start3 = time()
-end3 = time()
-time1 = (end3 - start3)
-#print('Time for training: ',time,'s','Time for predicting: ',time1,'s')
-
-###Evaluating the accuracy
-#print('Support Vector Machine: ', accuracy_score(pred, labels_test), '\n')
-
-#########################################
-#Decision Trees
-
-#cross validation
-from sklearn import tree
-clf = tree.DecisionTreeClassifier()
-
-acc = cross_val_score(clf, features_train, labels_train, scoring='accuracy', cv=10)
-    
-display(acc)
-
-### Task 5: Tune your classifier to achieve better than .3 precision and recall 
-### using our testing script. Check the tester.py script in the final project
-### folder for details on the evaluation method, especially the test_classifier
-### function. Because of the small size of the dataset, the script uses
-### stratified shuffle split cross validation. For more info: 
-### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
-
-# Example starting point. Try investigating other evaluation techniques!
-from sklearn.cross_validation import train_test_split
-features_train, features_test, labels_train, labels_test = \
-    train_test_split(features, labels, test_size=0.3, random_state=42)
-
-### Task 6: Dump your classifier, dataset, and features_list so anyone can
-### check your results. You do not need to change anything below, but make sure
-### that the version of poi_id.py that you submit can be run on its own and
-### generates the necessary .pkl files for validating your results.
-
-dump_classifier_and_data(clf, my_dataset, features_list)
