@@ -1,7 +1,6 @@
 import sys
 import pickle
 sys.path.append("../tools/")
-import matplotlib.pyplot as plt
 from time import time
 import numpy as np
 import pandas as pd
@@ -12,7 +11,7 @@ from sklearn.feature_selection import RFE
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, cross_val_score
-from sklearn.metrics import make_scorer, recall_score, precision_score, accuracy_score
+from sklearn.metrics import make_scorer, recall_score, precision_score, f1_score
 
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
@@ -62,13 +61,17 @@ supported_features = rfe_selection (X, y, n_features=13)
 selected_features = display_selected(X_labels, supported_features)
 
 #RFE/Logistic Regression with feature scaling
-def feat_scaler(X, t):
+def feat_scaler(X, **kwargs):
+    t = kwargs.get('t', None)
     scaler = StandardScaler()
     scaler.fit(X)
-    X_scaled = scaler.transform(t)
+    if X != t:
+        X_scaled = scaler.transform(t)
+    if X == t or t == None:
+        X_scaled = scaler.transform(X)        
     return X_scaled
 
-X_scaled = feat_scaler(X, t=X)
+X_scaled = feat_scaler(X)
 supported_scaled_features = rfe_selection (X_scaled, y, n_features=13)
 
 selected_scaled_features = display_selected(X_labels, supported_scaled_features)
@@ -116,21 +119,29 @@ labels, features = targetFeatureSplit(data)
 #Split the data into training and testset
 features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.2, random_state=42)
 
-##SCALING THE DATA
-#as with all transformation it's important to fit the scaler to the training data only
-#then apply to the testing data
-features_test = feat_scaler(features_train, t=features_test)
-
-#scaling the training data
-features_train = feat_scaler(features_train, t=features_train)
-
 ### Task 4: Try a varity of classifiers
 ### Please name your classifier clf for easy export below.
 ### Note that if you want to do PCA or other multi-stage operations,
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
+
+run_pca = True
+
+if run_pca:
+    from sklearn.decomposition import PCA
+    decomp = PCA(n_components='mle', svd_solver='full')
+    pipe = Pipeline([('scaler', feat_scaler()), ('PCA', decomp())])
     
-# Provided to give you a starting point. Try a variety of classifiers.
+    
+##SCALING THE DATA
+#as with all transformation it's important to fit the scaler to the training data only
+#then apply to the testing data
+
+features_test = feat_scaler(features_train, t=features_test)
+
+#scaling-transforming the training data
+features_train = feat_scaler(features_train, t=features_train)
+
 
 def display(scores, name):
     print('')
@@ -139,20 +150,26 @@ def display(scores, name):
     print('Score Mean:', scores.mean())
     print('Score STD:', scores.std())
 
+#makeing scorers from the metrics
+precision = make_scorer(precision_score)
+recall = make_scorer(recall_score)
+f1 = make_scorer(f1_score)
+
 ##########################################
 #Gaussian Naive Bayes
+from sklearn.naive_bayes import GaussianNB # Provided to give you a starting point. Try a variety of classifiers.
 
-from sklearn.naive_bayes import GaussianNB
 clf_1 = GaussianNB()
-acc = cross_val_score(clf_1, features_train, labels_train, scoring='recall', cv=10)
+acc = cross_val_score(clf_1, features_train, labels_train, scoring = recall, cv=10)
     
 display(acc, 'Naive Bayes')
 
 ##########################################
 #Support Vector Machine
 from sklearn.svm import SVC
+
 clf_2 = SVC(kernel='rbf', gamma = 0.001, C= 50)
-acc = cross_val_score(clf_2, features_train, labels_train, scoring='accuracy', cv=10)
+acc = cross_val_score(clf_2, features_train, labels_train, scoring = recall, cv=10)
 
 display(acc, 'SVM-SVC')
     
@@ -161,16 +178,18 @@ display(acc, 'SVM-SVC')
 
 #cross validation
 from sklearn import tree
+
 clf_3 = tree.DecisionTreeClassifier(min_samples_split=40)
-acc = cross_val_score(clf_3, features_train, labels_train, scoring='recall', cv=10)
+acc = cross_val_score(clf_3, features_train, labels_train, scoring = recall, cv=10)
     
 display(acc, 'Decision Trees')
 
 ##########################################
 #K Near Neighbors
 from sklearn.neighbors import KNeighborsClassifier
+
 clf_4 = KNeighborsClassifier(n_neighbors=3)
-acc = cross_val_score(clf_4, features_train, labels_train, scoring='recall', cv=10)
+acc = cross_val_score(clf_4, features_train, labels_train, scoring = recall, cv=10)
 
 display(acc, 'K Near Neighbors')
 
@@ -196,36 +215,52 @@ def report(results, n_top=3):
             print("Parameters: {0}".format(results['params'][candidate]))
             print("")
             
-recall = make_scorer(recall_score)
 n_iter_search = 20 
 ##########################################
 #Support Vector Machine
+print('RandomSearch for SVM-SVC')
 clf_SVC = SVC()
 
 param_svc = {'C': [1.0, 10, 50, 100, 200, 500, 800, 1000], 
              'kernel': ['linear', 'poly', 'rbf', 'sigmoid'],
              'gamma': [0.001, 0.010, 0.1, 1]}
 
-random_search = RandomizedSearchCV(clf_SVC, param_distributions=param_svc, n_iter=n_iter_search,
-                                   scoring = 'recall', cv=10)
+random_search_svc = RandomizedSearchCV(clf_SVC, param_distributions=param_svc, n_iter=n_iter_search,
+                                   scoring = recall, cv=10)
 
-random_search.fit(features_train, labels_train)
+random_search_svc.fit(features_train, labels_train)
 
-report(random_search.cv_results_, n_top=3)
+report(random_search_svc.cv_results_, n_top=3)
 
 ##########################################
 #Decision Trees
+print('RandomSearch for Decision Tree')
 clf_tree = tree.DecisionTreeClassifier()
 
 param_tree = {'min_samples_split':[2, 4, 8], 'min_samples_leaf':[2, 4, 8],
               'max_features':[3, 5, 7, 9]}
 
-random_search = RandomizedSearchCV(clf_tree, param_distributions=param_tree,n_iter=n_iter_search,
-                                   scoring = 'recall', cv=10)
+random_search_tree = RandomizedSearchCV(clf_tree, param_distributions=param_tree,n_iter=n_iter_search,
+                                   scoring = recall, cv=10)
 
-random_search.fit(features_train, labels_train)
+random_search_tree.fit(features_train, labels_train)
 
-report(random_search.cv_results_, n_top=3)
+report(random_search_tree.cv_results_, n_top=3)
+
+##########################################
+#K-nearest Neighbor
+n_iter_search = 18
+print('RandomSearch for K-nearest Neighbor')
+clf_knn = KNeighborsClassifier()
+
+param_knn = {'n_neighbors':[3,5,9],'weights':['uniform', 'distance'],'leaf_size':[10, 15, 30]}
+
+random_search_knn = RandomizedSearchCV(clf_knn, param_distributions=param_knn,n_iter=n_iter_search,
+                                       scoring = recall, cv=10)
+
+random_search_knn.fit(features_train, labels_train)
+
+report(random_search_knn.cv_results_, n_top=3)
 
 # Example starting point. Try investigating other evaluation techniques!
 features_train, features_test, labels_train, labels_test = \
@@ -237,7 +272,6 @@ features_train, features_test, labels_train, labels_test = \
 ### generates the necessary .pkl files for validating your results.
 
 dump_classifier_and_data(clf, my_dataset, features_list)
-
 
 start3 = time()
 end3 = time()
