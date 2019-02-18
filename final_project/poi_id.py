@@ -55,29 +55,27 @@ def rfe_selection (X, y, n_features):
     supported_features = fit.support_
     return supported_features
 
-#Runninf RFE selection before scaling
-supported_features = rfe_selection (X, y, n_features=13)
-
-selected_features = display_selected(X_labels, supported_features)
+#Runninf RFE selection without scaling
+supported_features = rfe_selection(X, y, n_features=10) #boolean list
+selected_features = display_selected(X_labels, supported_features) #list with the selected features names
 
 #RFE/Logistic Regression with feature scaling
-def feat_scaler(X, **kwargs):
-    t = kwargs.get('t', None)
+def feat_scaler(X, t=X):
     scaler = StandardScaler()
     scaler.fit(X)
     if X != t:
         X_scaled = scaler.transform(t)
-    if X == t or t == None:
+    if X == t:
         X_scaled = scaler.transform(X)        
     return X_scaled
 
+#Runninf RFE selection with scaling
 X_scaled = feat_scaler(X)
-supported_scaled_features = rfe_selection (X_scaled, y, n_features=13)
+supported_scaled_features = rfe_selection(X_scaled, y, n_features=13) #boolean list
 
-selected_scaled_features = display_selected(X_labels, supported_scaled_features)
+selected_scaled_features = display_selected(X_labels, supported_scaled_features) #list with the selected features names
 
 ###selected features
-
 features_list = selected_scaled_features
 
 ### Task 2: Remove outliers
@@ -106,8 +104,9 @@ for k in data_dict:
         data_dict[k]['fraction_from_this_person_poi'] = float(0)
         
 
-my_dataset = data_dict #new features added and outliers removed
+my_dataset = data_dict #new features added, TOTAL outlier removed, data not yet definitive scaled
 
+#finalizes the features_list
 features_list.append('fraction_to_this_person_from_poi')
 features_list.append('fraction_from_this_person_poi')
 features_list.insert(0,'poi')
@@ -116,8 +115,8 @@ features_list.insert(0,'poi')
 data = featureFormat(my_dataset, features_list)
 labels, features = targetFeatureSplit(data)
 
-#Split the data into training and testset
-features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.2, random_state=42)
+#Split the data into training and testset (data only with the selected features; data not scaled yet)
+features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.3, random_state=42)
 
 ### Task 4: Try a varity of classifiers
 ### Please name your classifier clf for easy export below.
@@ -125,14 +124,6 @@ features_train, features_test, labels_train, labels_test = train_test_split(feat
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
 
-run_pca = True
-
-if run_pca:
-    from sklearn.decomposition import PCA
-    decomp = PCA(n_components='mle', svd_solver='full')
-    pipe = Pipeline([('scaler', feat_scaler()), ('PCA', decomp())])
-    
-    
 ##SCALING THE DATA
 #as with all transformation it's important to fit the scaler to the training data only
 #then apply to the testing data
@@ -142,7 +133,17 @@ features_test = feat_scaler(features_train, t=features_test)
 #scaling-transforming the training data
 features_train = feat_scaler(features_train, t=features_train)
 
+#Running PCA
+#set whether to run the pca or not
+run_pca = False
 
+if run_pca == True:
+    from sklearn.decomposition import PCA
+    pca = PCA(n_components='mle', svd_solver='full')
+    pca.fit(features_train)
+    features_train = pca.transform(features_train)
+    features_test = pca.transform(features_test)
+    
 def display(scores, name):
     print('')
     print(name, '\n')
@@ -249,7 +250,7 @@ report(random_search_tree.cv_results_, n_top=3)
 
 ##########################################
 #K-nearest Neighbor
-n_iter_search = 18
+n_iter_search = 18 #KNN maximum splits for this dataset
 print('RandomSearch for K-nearest Neighbor')
 clf_knn = KNeighborsClassifier()
 
@@ -262,34 +263,19 @@ random_search_knn.fit(features_train, labels_train)
 
 report(random_search_knn.cv_results_, n_top=3)
 
-# Example starting point. Try investigating other evaluation techniques!
-features_train, features_test, labels_train, labels_test = \
-    train_test_split(features, labels, test_size=0.3, random_state=42)
-
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
 ### check your results. You do not need to change anything below, but make sure
 ### that the version of poi_id.py that you submit can be run on its own and
 ### generates the necessary .pkl files for validating your results.
+clf = tree.DecisionTreeClassifier(min_samples_split=8, min_samples_leaf=8, max_features=9)
+
+clf.fit(features_train, labels_train)
+y = clf.predict(features_test)
+importances = clf.feature_importances_
+
+print('Final Precision Score On the Test Set: ', precision_score(y, labels_test), '\n')
+print('Final Recall Score On the Test Set: ', recall_score(y, labels_test), '\n')
+for i, v in enumerate(features_list[1:]):
+    print('Feature {} holds importance of '.format(v), importances[i])
 
 dump_classifier_and_data(clf, my_dataset, features_list)
-
-start3 = time()
-end3 = time()
-time1 = (end3 - start3)
-#print('Time for training: ',time,'s','Time for predicting: ',time1,'s')
-
-#Frame train set
-df_features_train = pd.DataFrame(features_train)
-
-try:
-    features_train = df_features_train.to_numpy()
-except AttributeError:
-    features_train = df_features_train.as_matrix()
-
-#Frame train set
-df_features_test = pd.DataFrame(features_test)
-
-try:
-    features_test = df_features_test.to_numpy()
-except AttributeError:
-    features_test = df_features_test.as_matrix()

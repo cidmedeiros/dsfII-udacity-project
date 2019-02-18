@@ -1,0 +1,6 @@
+References
+
+Websites
+
+https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.cross_val_score.html#sklearn.model_selection.cross_val_score
+https://scikit-learn.org/stable/auto_examples/model_selection/plot_randomized_search.html
