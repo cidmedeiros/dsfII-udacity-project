@@ -29,15 +29,45 @@ data_dict = {}
 with open("final_project_dataset.pkl", "rb") as data_file:
     data_dict = pickle.load(data_file)
 
-data_dict.pop('TOTAL') #outlier removal
+#Exploring the data with pandas
+df = pd.DataFrame(data_dict).T
+df.poi.describe()
+df_info = df.apply(pd.value_counts)
+
+#Removes a clear outlier in the data
+data_dict.pop('TOTAL')
 
 data = featureFormat(data_dict, features_list)
 
 y, X = targetFeatureSplit(data)
 X_labels = features_list[1:]
 
+#RFE/Logistic Regression
+def rfe_selection (X, y, n_features):
+    """
+    Applies RFE selection using Logistic Regression.
+    It takes three arguments:
+        X = numpy.ndarray with the features to be selected;
+        y = list with the labels;
+        n_features = integer specifying how many features to limit the selection on.
+    """
+    mod = LogisticRegression()
+    rfe = RFE(mod, n_features)
+    fit = rfe.fit(X, y)
+    supported_features = fit.support_
+    return supported_features
+
 #function do display the selected features
 def display_selected(labels, supported_features):
+    """
+    Prints which features got selected or not
+    during the RFE procedure.
+    It takes two arguments:
+        labels: list containing the name of the features in the same order
+        as they are on supported_features
+        supported_features: list of bool values indicating whether the feature
+        got selected or not.
+    """
     selected_features = []
     for i, feat in enumerate(labels):
         if supported_features[i] == True:
@@ -47,20 +77,17 @@ def display_selected(labels, supported_features):
             print('{} not selected'.format(feat), '\n')
     return selected_features
 
-#RFE/Logistic Regression
-def rfe_selection (X, y, n_features):
-    mod = LogisticRegression()
-    rfe = RFE(mod, n_features)
-    fit = rfe.fit(X, y)
-    supported_features = fit.support_
-    return supported_features
-
-#Runninf RFE selection without scaling
-supported_features = rfe_selection(X, y, n_features=10) #boolean list
-selected_features = display_selected(X_labels, supported_features) #list with the selected features names
-
-#RFE/Logistic Regression with feature scaling
+#Data Scaler
 def feat_scaler(X, t=X):
+    """
+    Scales all the features values.
+    Applicable on both the training set and the test set.
+    Note that fitting only takes place with the training set and
+    both training and test set are transformed in reference to the same fitting.
+    It takes two arguments:
+        X: numpy.ndarray with the features to fit the scaler with;
+        t: numpy.ndarray with the values to be transformed by the scaler;
+    """
     scaler = StandardScaler()
     scaler.fit(X)
     if X != t:
@@ -68,6 +95,10 @@ def feat_scaler(X, t=X):
     if X == t:
         X_scaled = scaler.transform(X)        
     return X_scaled
+
+#Runninf RFE selection without scaling
+supported_features = rfe_selection(X, y, n_features=10) #boolean list
+selected_features = display_selected(X_labels, supported_features) #list with the selected features names
 
 #Runninf RFE selection with scaling
 X_scaled = feat_scaler(X)
@@ -86,8 +117,8 @@ features_list = selected_scaled_features
 ### Task 3: Create new feature(s)
 ### Store to my_dataset for easy export below.
 
-#Create new feature 1: fraction_to_this_person_from_poi
-#Create new feature 2: fraction_from_this_person_poi
+#Create and add new feature 1: fraction_to_this_person_from_poi
+#Create and add new feature 2: fraction_from_this_person_poi
 for k in data_dict:
     to_messages = data_dict[k]['to_messages']
     from_messages = data_dict[k]['from_messages']
@@ -133,11 +164,14 @@ features_test = feat_scaler(features_train, t=features_test)
 #scaling-transforming the training data
 features_train = feat_scaler(features_train, t=features_train)
 
-#Running PCA
-#set whether to run the pca or not
-run_pca = False
+#PCA
+# Project only runs with PCA if run_pca is set to True
+# Running PCA actually made the classifiers performance worse
+# For the final project run_pca will be set to False
 
-if run_pca == True:
+run_pca = False #set whether to run the pca or not
+
+if run_pca:
     from sklearn.decomposition import PCA
     pca = PCA(n_components='mle', svd_solver='full')
     pca.fit(features_train)
@@ -145,13 +179,20 @@ if run_pca == True:
     features_test = pca.transform(features_test)
     
 def display(scores, name):
+    """
+    Prints the information associated with classifier
+    being manually trained.
+    It takes two arguments:
+        scores: sklearn object with the scoring method
+        name: str identifying the classifier under evaluation
+    """
     print('')
     print(name, '\n')
     print('Scores:', scores)
     print('Score Mean:', scores.mean())
     print('Score STD:', scores.std())
 
-#makeing scorers from the metrics
+#making scorers from the metrics
 precision = make_scorer(precision_score)
 recall = make_scorer(recall_score)
 f1 = make_scorer(f1_score)
@@ -176,8 +217,6 @@ display(acc, 'SVM-SVC')
     
 ##########################################
 #Decision Trees
-
-#cross validation
 from sklearn import tree
 
 clf_3 = tree.DecisionTreeClassifier(min_samples_split=40)
@@ -202,10 +241,12 @@ display(acc, 'K Near Neighbors')
 ### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
 
 ###RandomizedSearchCV
-# Utility function to report best scores extracted from sklearn documentation
-#https://scikit-learn.org/stable/auto_examples/model_selection/plot_randomized_search.html
 
 def report(results, n_top=3):
+    """
+    Utility function to report best scores extracted from sklearn documentation.
+    https://scikit-learn.org/stable/auto_examples/model_selection/plot_randomized_search.html
+    """
     for i in range(1, n_top + 1):
         candidates = np.flatnonzero(results['rank_test_score'] == i)
         for candidate in candidates:
