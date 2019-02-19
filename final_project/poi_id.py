@@ -1,7 +1,6 @@
 import sys
 import pickle
 sys.path.append("../tools/")
-from time import time
 import numpy as np
 import pandas as pd
 from feature_format import featureFormat, targetFeatureSplit
@@ -9,7 +8,6 @@ from tester import dump_classifier_and_data
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import RFE
 from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, cross_val_score
 from sklearn.metrics import make_scorer, recall_score, precision_score, f1_score
 
@@ -142,8 +140,24 @@ features_list.append('fraction_to_this_person_from_poi')
 features_list.append('fraction_from_this_person_poi')
 features_list.insert(0,'poi')
 
-### Extract features and labels from dataset for local testing
-data = featureFormat(my_dataset, features_list)
+### Extract features and labels from dataset applying cross validation
+from sklearn.model_selection import StratifiedShuffleSplit
+data = featureFormat(my_dataset, features_list, sort_keys = True)
+labels, features = targetFeatureSplit(data)
+cv = StratifiedShuffleSplit(labels, 1000, random_state = 42)
+
+for train_idx, test_idx in cv: 
+        features_train = []
+        features_test  = []
+        labels_train   = []
+        labels_test    = []
+        for ii in train_idx:
+            features_train.append( features[ii] )
+            labels_train.append( labels[ii] )
+        for jj in test_idx:
+            features_test.append( features[jj] )
+            labels_test.append( labels[jj] )
+
 labels, features = targetFeatureSplit(data)
 
 #Split the data into training and testset (data only with the selected features; data not scaled yet)
@@ -245,7 +259,10 @@ display(acc, 'K Near Neighbors')
 def report(results, n_top=3):
     """
     Utility function to report best scores extracted from sklearn documentation.
-    https://scikit-learn.org/stable/auto_examples/model_selection/plot_randomized_search.html
+    It takes two arguments:
+        results: an ordered iterable of classifiers;
+        n_top: int setting how many result to be displayed.
+    Source: https://scikit-learn.org/stable/auto_examples/model_selection/plot_randomized_search.html
     """
     for i in range(1, n_top + 1):
         candidates = np.flatnonzero(results['rank_test_score'] == i)
@@ -288,7 +305,6 @@ random_search_tree = RandomizedSearchCV(clf_tree, param_distributions=param_tree
 random_search_tree.fit(features_train, labels_train)
 
 report(random_search_tree.cv_results_, n_top=3)
-
 ##########################################
 #K-nearest Neighbor
 n_iter_search = 18 #KNN maximum splits for this dataset
@@ -304,10 +320,7 @@ random_search_knn.fit(features_train, labels_train)
 
 report(random_search_knn.cv_results_, n_top=3)
 
-### Task 6: Dump your classifier, dataset, and features_list so anyone can
-### check your results. You do not need to change anything below, but make sure
-### that the version of poi_id.py that you submit can be run on its own and
-### generates the necessary .pkl files for validating your results.
+###Applying the best model with the best hyperparameters on the test set
 clf = tree.DecisionTreeClassifier(min_samples_split=8, min_samples_leaf=8, max_features=9)
 
 clf.fit(features_train, labels_train)
@@ -316,7 +329,14 @@ importances = clf.feature_importances_
 
 print('Final Precision Score On the Test Set: ', precision_score(y, labels_test), '\n')
 print('Final Recall Score On the Test Set: ', recall_score(y, labels_test), '\n')
+
+#Display how each feature performed
 for i, v in enumerate(features_list[1:]):
     print('Feature {} holds importance of '.format(v), importances[i])
+
+### Task 6: Dump your classifier, dataset, and features_list so anyone can
+### check your results. You do not need to change anything below, but make sure
+### that the version of poi_id.py that you submit can be run on its own and
+### generates the necessary .pkl files for validating your results.
 
 dump_classifier_and_data(clf, my_dataset, features_list)
