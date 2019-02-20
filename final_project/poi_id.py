@@ -116,7 +116,7 @@ features_list = selected_scaled_features
 ### Store to my_dataset for easy export below.
 
 #Create and add new feature 1: fraction_to_this_person_from_poi
-#Create and add new feature 2: fraction_from_this_person_poi
+#Create and add new feature 2: fraction_from_this_person_to_poi
 for k in data_dict:
     to_messages = data_dict[k]['to_messages']
     from_messages = data_dict[k]['from_messages']
@@ -128,16 +128,16 @@ for k in data_dict:
         data_dict[k]['fraction_to_this_person_from_poi'] = float(0)
         
     if to_poi != 'NaN' and from_messages != 'NaN':
-        data_dict[k]['fraction_from_this_person_poi'] = float(to_poi)/float(from_messages)
+        data_dict[k]['fraction_from_this_person_to_poi'] = float(to_poi)/float(from_messages)
     else:
-        data_dict[k]['fraction_from_this_person_poi'] = float(0)
+        data_dict[k]['fraction_from_this_person_to_poi'] = float(0)
         
 
 my_dataset = data_dict #new features added, TOTAL outlier removed, data not yet definitive scaled
 
 #finalizes the features_list
 features_list.append('fraction_to_this_person_from_poi')
-features_list.append('fraction_from_this_person_poi')
+features_list.append('fraction_from_this_person_to_poi')
 features_list.insert(0,'poi')
 
 ### Extract features and labels from dataset applying cross validation

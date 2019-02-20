@@ -4,3 +4,5 @@ Websites
 
 https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.cross_val_score.html#sklearn.model_selection.cross_val_score
 https://scikit-learn.org/stable/auto_examples/model_selection/plot_randomized_search.html
+
+Automatic choice of dimensionality for PCA, Thomas P. Minka: http://vismod.media.mit.edu/tech-reports/TR-514.pdf

@@ -1,0 +1,1 @@
+Attached is an Excel workbook with the features' variances calculated during the PCA decomposition.
