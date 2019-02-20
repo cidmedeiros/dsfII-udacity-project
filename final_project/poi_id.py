@@ -8,7 +8,7 @@ from tester import dump_classifier_and_data
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import RFE
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split, RandomizedSearchCV, cross_val_score
+from sklearn.model_selection import RandomizedSearchCV, cross_val_score
 from sklearn.metrics import make_scorer, recall_score, precision_score, f1_score
 
 ### Task 1: Select what features you'll use.
@@ -141,7 +141,7 @@ features_list.append('fraction_from_this_person_poi')
 features_list.insert(0,'poi')
 
 ### Extract features and labels from dataset applying cross validation
-from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.cross_validation import StratifiedShuffleSplit
 data = featureFormat(my_dataset, features_list, sort_keys = True)
 labels, features = targetFeatureSplit(data)
 cv = StratifiedShuffleSplit(labels, 1000, random_state = 42)
@@ -158,11 +158,6 @@ for train_idx, test_idx in cv:
             features_test.append( features[jj] )
             labels_test.append( labels[jj] )
 
-labels, features = targetFeatureSplit(data)
-
-#Split the data into training and testset (data only with the selected features; data not scaled yet)
-features_train, features_test, labels_train, labels_test = train_test_split(features, labels, test_size=0.3, random_state=42)
-
 ### Task 4: Try a varity of classifiers
 ### Please name your classifier clf for easy export below.
 ### Note that if you want to do PCA or other multi-stage operations,
@@ -178,11 +173,13 @@ features_test = feat_scaler(features_train, t=features_test)
 #scaling-transforming the training data
 features_train = feat_scaler(features_train, t=features_train)
 
+##################################################################
 #PCA
 # Project only runs with PCA if run_pca is set to True
 # Running PCA actually made the classifiers performance worse
 # For the final project run_pca will be set to False
 
+#ATENTION!
 run_pca = False #set whether to run the pca or not
 
 if run_pca:
@@ -191,7 +188,7 @@ if run_pca:
     pca.fit(features_train)
     features_train = pca.transform(features_train)
     features_test = pca.transform(features_test)
-    
+#################################################################    
 def display(scores, name):
     """
     Prints the information associated with classifier
@@ -327,12 +324,16 @@ clf.fit(features_train, labels_train)
 y = clf.predict(features_test)
 importances = clf.feature_importances_
 
-print('Final Precision Score On the Test Set: ', precision_score(y, labels_test), '\n')
-print('Final Recall Score On the Test Set: ', recall_score(y, labels_test), '\n')
-
 #Display how each feature performed
-for i, v in enumerate(features_list[1:]):
-    print('Feature {} holds importance of '.format(v), importances[i])
+if run_pca:
+    print('Final Precision Score On the Test Set with PCA True: ', precision_score(y, labels_test), '\n')
+    print('Final Recall Score On the Test Set with PCA True: ', recall_score(y, labels_test), '\n')
+    df_pca = pd.DataFrame(pca.components_, columns=features_list[1:])
+else:
+    print('Final Precision Score On the Test Set with PCA False: ', precision_score(y, labels_test), '\n')
+    print('Final Recall Score On the Test Set with PCA False: ', recall_score(y, labels_test), '\n')
+    for i, v in enumerate(features_list[1:]):
+        print('Feature {} holds importance of '.format(v), importances[i])
 
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
 ### check your results. You do not need to change anything below, but make sure
